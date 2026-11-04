@@ -11,6 +11,7 @@ change what a citation points at. Luminary installs a connector only when its us
 |---|---|---|
 | [youtube](youtube/) | YouTube video links | ffmpeg, and Luminary's speech-to-text |
 | [html-book](html-book/) | Books on `doc.rust-lang.org` and `docs.python.org/3/` (mdBook, Sphinx) | Nothing |
+| [confluence](confluence/) | Public pages on `lf-hyperledger.atlassian.net/wiki`, with the pages under them | Nothing |
 
 To write one, start from [template](template/): a working one-page connector whose tests run the
 conformance kit.

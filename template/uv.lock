@@ -34,7 +34,7 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "luminary-source-sdk", url = "https://github.com/nupsea/luminary/archive/69d48aeb3fb807e9a7e802c5d2ceaf27219f6ece.tar.gz", subdirectory = "packages/luminary-source-sdk" }]
+requires-dist = [{ name = "luminary-source-sdk", url = "https://github.com/nupsea/luminary/archive/e20a65177cfd8e27edbf1bb240773c9494fb1e57.tar.gz", subdirectory = "packages/luminary-source-sdk" }]
 
 [package.metadata.requires-dev]
 dev = [{ name = "pytest", specifier = ">=8.3" }]
@@ -42,8 +42,8 @@ dev = [{ name = "pytest", specifier = ">=8.3" }]
 [[package]]
 name = "luminary-source-sdk"
 version = "0.1.0"
-source = { url = "https://github.com/nupsea/luminary/archive/69d48aeb3fb807e9a7e802c5d2ceaf27219f6ece.tar.gz", subdirectory = "packages/luminary-source-sdk" }
-sdist = { hash = "sha256:dc15bbc472a4627e24c4de8f2d34221e0ddbb0e6cd68ae6ada79eca9e9ede630" }
+source = { url = "https://github.com/nupsea/luminary/archive/e20a65177cfd8e27edbf1bb240773c9494fb1e57.tar.gz", subdirectory = "packages/luminary-source-sdk" }
+sdist = { hash = "sha256:cdd0b9eb99004e43c482d4064863a62c84a250794bdfd35234d309dc2433eeec" }
 
 [[package]]
 name = "packaging"

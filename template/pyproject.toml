@@ -16,7 +16,7 @@ dev = ["pytest>=8.3"]
 
 # Until the SDK is on PyPI, it comes from the Luminary repository at a pinned commit.
 [tool.uv.sources]
-luminary-source-sdk = { url = "https://github.com/nupsea/luminary/archive/69d48aeb3fb807e9a7e802c5d2ceaf27219f6ece.tar.gz", subdirectory = "packages/luminary-source-sdk" }
+luminary-source-sdk = { url = "https://github.com/nupsea/luminary/archive/e20a65177cfd8e27edbf1bb240773c9494fb1e57.tar.gz", subdirectory = "packages/luminary-source-sdk" }
 
 [build-system]
 requires = ["hatchling"]

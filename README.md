@@ -5,11 +5,17 @@ directory with `manifest.json`, `sections/` and `assets/`. [Luminary](https://gi
 does everything after that (parsing, chunking, search, citations, cards), so a connector cannot
 change what a citation points at. Luminary installs a connector only when its user chooses to.
 
-## Status
+## Connectors
 
-This repository is empty for now. Connectors arrive once Luminary publishes its connector SDK and
-process protocol (nupsea/luminary#435, nupsea/luminary#438). The first is YouTube. The bundle's
-manifest schema is published in Luminary at
+| Connector | Takes | Needs on the machine |
+|---|---|---|
+| [youtube](youtube/) | YouTube video links | ffmpeg, and Luminary's speech-to-text |
+
+Each is a project of its own. Luminary installs one from its folder
+(`python -m app.scripts.install_connector <folder>`), builds its environment with `uv sync`, and
+runs it as a separate process per request. A connector is written against
+[`luminary-source-sdk`](https://github.com/nupsea/luminary/tree/master/packages/luminary-source-sdk),
+whose README is the author's guide; the bundle's schema is
 `packages/luminary-source-sdk/schema/source-bundle.schema.json`.
 
 ## Terms

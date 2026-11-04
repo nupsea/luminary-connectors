@@ -1,0 +1,31 @@
+[project]
+name = "luminary-connector-youtube"
+version = "0.1.0"
+description = "YouTube for Luminary: a talk's audio, captions and description as a source bundle."
+license = "Apache-2.0"
+requires-python = ">=3.11"
+dependencies = [
+    "luminary-source-sdk",
+    # Unlicense. YouTube breaks yt-dlp regularly; a pin that drifts months behind stops
+    # downloading: 2026.3.13 got "HTTP Error 403: Forbidden" on every video, 2026.8.19 did not.
+    "yt-dlp>=2026.8.19",
+]
+
+[project.entry-points."luminary.connectors"]
+youtube = "luminary_youtube:YouTube"
+
+[dependency-groups]
+dev = ["pytest>=8.3", "jsonschema>=4.23"]
+
+[tool.uv.sources]
+luminary-source-sdk = { git = "https://github.com/nupsea/luminary", subdirectory = "packages/luminary-source-sdk", rev = "0ce17ad8c209bc23146492d892626763602710e4" }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/luminary_youtube"]
+
+[tool.ruff]
+line-length = 100

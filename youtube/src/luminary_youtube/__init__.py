@@ -9,7 +9,17 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from luminary_source_sdk import BundleWriter, Connector, ConnectorError, Description, Report, Terms
+from luminary_source_sdk import (
+    BundleWriter,
+    Choice,
+    Connector,
+    ConnectorError,
+    Description,
+    Option,
+    Preview,
+    Report,
+    Terms,
+)
 
 from luminary_youtube import ytdlp
 
@@ -38,6 +48,7 @@ URL_PREFIXES = [
     "http://www.youtube.com/watch",
     "http://youtu.be/",
 ]
+TRANSCRIBE = "transcribe"
 # What the manifest takes; YouTube's own limits are lower except for tags.
 _MAX_TAG_CHARS = 100
 
@@ -53,20 +64,39 @@ class YouTube(Connector):
             url_prefixes=URL_PREFIXES,
             media=["youtube"],
             tools=["ffmpeg"],
+            preview=True,
+        )
+
+    def preview(self, input: dict[str, Any], credentials: dict[str, Any]) -> Preview:
+        """The talk, and which transcript to use: an uploader's caption track, or the audio
+        transcribed. The default is the rule a fetch without a choice follows."""
+        url = _claimed(input)
+        try:
+            meta = ytdlp.fetch_metadata(url)
+        except ytdlp.YtDlpError as exc:
+            raise ConnectorError("source", str(exc)) from exc
+        tracks = ytdlp.uploaded_tracks(meta)
+        options = [Option(t, f"Captions: {t}", "uploaded by the channel") for t in tracks]
+        options.append(Option(TRANSCRIBE, "Transcribe the audio", "speech recognition"))
+        default = ytdlp.uploader_caption_language(meta) or TRANSCRIBE
+        channel = meta.get("uploader") or meta.get("channel") or ""
+        return Preview(
+            title=meta.get("title") or "YouTube Video",
+            detail=channel,
+            choices=[Choice("captions", "Transcript", options, default=[default])],
         )
 
     def fetch(
         self, input: dict[str, Any], credentials: dict[str, Any], bundle: BundleWriter,
         report: Report,
     ) -> None:  # fmt: skip
-        url = str(input.get("url") or "")
-        if not any(url.startswith(p) for p in URL_PREFIXES):
-            raise ConnectorError("input", f"{url!r} is not a YouTube video link")
+        url = _claimed(input)
         ffmpeg = (input.get("tools") or {}).get("ffmpeg")
         try:
             meta = ytdlp.fetch_metadata(url)
+            track = _track(meta, input.get("captions"))
             with tempfile.TemporaryDirectory(prefix="luminary-youtube-") as scratch:
-                media = _download(url, meta, Path(scratch), ffmpeg, bundle, report)
+                media = _download(url, track, Path(scratch), ffmpeg, bundle, report)
         except ytdlp.YtDlpError as exc:
             raise ConnectorError("source", str(exc)) from exc
         channel = meta.get("uploader") or meta.get("channel")
@@ -87,9 +117,31 @@ class YouTube(Connector):
         )
 
 
+def _claimed(input: dict[str, Any]) -> str:
+    url = str(input.get("url") or "")
+    if not any(url.startswith(p) for p in URL_PREFIXES):
+        raise ConnectorError("input", f"{url!r} is not a YouTube video link")
+    return url
+
+
+def _track(meta: dict, chosen: object) -> str | None:
+    """The caption track to fetch: the user's choice when it is one this video has, none when
+    they chose speech recognition, else the uploader's track in the spoken language."""
+    if isinstance(chosen, list):
+        chosen = chosen[0] if chosen else None
+    if chosen == TRANSCRIBE:
+        return None
+    if chosen is not None:
+        if chosen not in ytdlp.uploaded_tracks(meta):
+            raise ConnectorError("input", f"This video has no caption track {chosen!r}")
+        return str(chosen)
+    return ytdlp.uploader_caption_language(meta)
+
+
 def _download(
-    url: str, meta: dict, scratch: Path, ffmpeg: str | None, bundle: BundleWriter, report: Report
-) -> dict[str, Any]:
+    url: str, track: str | None, scratch: Path, ffmpeg: str | None, bundle: BundleWriter,
+    report: Report,
+) -> dict[str, Any]:  # fmt: skip
     """Audio, then the uploader's captions when there is a track, moved into the bundle."""
     audio = ytdlp.download_audio(
         url, scratch / "audio", ffmpeg=ffmpeg, on_progress=lambda f: report(f, "downloading")
@@ -99,7 +151,6 @@ def _download(
         "url": url,
         "audio": bundle.add_asset_file(f"audio{ytdlp.AUDIO_SUFFIX}", audio),
     }
-    track = ytdlp.uploader_caption_language(meta)
     vtt = scratch / "captions.vtt"
     if track and ytdlp.download_captions(url, vtt, track):
         media["captions"] = bundle.add_asset_file("captions.vtt", vtt)

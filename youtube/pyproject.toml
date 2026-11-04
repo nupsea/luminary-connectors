@@ -18,7 +18,7 @@ youtube = "luminary_youtube:YouTube"
 dev = ["pytest>=8.3", "jsonschema>=4.23"]
 
 [tool.uv.sources]
-luminary-source-sdk = { git = "https://github.com/nupsea/luminary", subdirectory = "packages/luminary-source-sdk", rev = "0ce17ad8c209bc23146492d892626763602710e4" }
+luminary-source-sdk = { url = "https://github.com/nupsea/luminary/archive/5541c6378b7cfa6323eb8926133cc6d10d9d4437.tar.gz", subdirectory = "packages/luminary-source-sdk" }
 
 [build-system]
 requires = ["hatchling"]

@@ -112,6 +112,15 @@ def download_audio(
     return audio
 
 
+def uploaded_tracks(meta: dict) -> list[str]:
+    """Caption tracks a person uploaded, by key; never YouTube's own `automatic_captions`."""
+    return [
+        k
+        for k in meta.get("subtitles") or {}
+        if isinstance(k, str) and _TRACK_KEY.fullmatch(k) and k != "live_chat"
+    ]
+
+
 def uploader_caption_language(meta: dict) -> str | None:
     """The key of the uploader's caption track in the language the video is spoken in.
 
@@ -123,12 +132,7 @@ def uploader_caption_language(meta: dict) -> str | None:
     if not isinstance(spoken, str) or not spoken:
         return None
     primary = spoken.split("-")[0].casefold()
-    tracks = [
-        k
-        for k in meta.get("subtitles") or {}
-        if isinstance(k, str) and _TRACK_KEY.fullmatch(k) and k != "live_chat"
-    ]
-    matching = [k for k in tracks if k.split("-")[0].casefold() == primary]
+    matching = [k for k in uploaded_tracks(meta) if k.split("-")[0].casefold() == primary]
     if not matching:
         return None
     return spoken if spoken in matching else sorted(matching)[0]

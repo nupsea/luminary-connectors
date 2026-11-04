@@ -12,6 +12,9 @@ change what a citation points at. Luminary installs a connector only when its us
 | [youtube](youtube/) | YouTube video links | ffmpeg, and Luminary's speech-to-text |
 | [html-book](html-book/) | Books on `doc.rust-lang.org` and `docs.python.org/3/` (mdBook, Sphinx) | Nothing |
 
+To write one, start from [template](template/): a working one-page connector whose tests run the
+conformance kit.
+
 Each is a project of its own. Luminary installs one from its folder
 (`python -m app.scripts.install_connector <folder>`), builds its environment with `uv sync`, and
 runs it as a separate process per request. A connector is written against

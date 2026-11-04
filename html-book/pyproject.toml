@@ -14,7 +14,7 @@ html-book = "luminary_html_book:HtmlBook"
 dev = ["pytest>=8.3"]
 
 [tool.uv.sources]
-luminary-source-sdk = { url = "https://github.com/nupsea/luminary/archive/89117ccf1cc35c6da1a96fd669692146ab877774.tar.gz", subdirectory = "packages/luminary-source-sdk" }
+luminary-source-sdk = { url = "https://github.com/nupsea/luminary/archive/2d9fddf0540d0b39ba38242b0b50fec5b01bba91.tar.gz", subdirectory = "packages/luminary-source-sdk" }
 
 [build-system]
 requires = ["hatchling"]

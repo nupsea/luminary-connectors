@@ -11,7 +11,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        connector: [youtube, html-book]
+        connector: [youtube, html-book, template]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4

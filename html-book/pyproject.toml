@@ -1,0 +1,27 @@
+[project]
+name = "luminary-connector-html-book"
+version = "0.1.0"
+description = "A book published as HTML pages, for Luminary: each page a section, in reading order."
+license = "Apache-2.0"
+requires-python = ">=3.11"
+# Standard library only beside the SDK: nothing more to review for its licence.
+dependencies = ["luminary-source-sdk"]
+
+[project.entry-points."luminary.connectors"]
+html-book = "luminary_html_book:HtmlBook"
+
+[dependency-groups]
+dev = ["pytest>=8.3"]
+
+[tool.uv.sources]
+luminary-source-sdk = { url = "https://github.com/nupsea/luminary/archive/89117ccf1cc35c6da1a96fd669692146ab877774.tar.gz", subdirectory = "packages/luminary-source-sdk" }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/luminary_html_book"]
+
+[tool.ruff]
+line-length = 100

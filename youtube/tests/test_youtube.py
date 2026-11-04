@@ -232,3 +232,37 @@ def test_a_link_that_is_not_a_video_is_refused_before_yt_dlp_runs(yt, tmp_path):
     events = run(ENTRY, "fetch", input={"url": "-o/etc/passwd"}, dest=tmp_path)
     assert events[-1]["code"] == "input"
     assert yt["calls"] == []
+
+
+def test_preview_offers_the_uploaded_tracks_and_speech_recognition(yt):
+    yt["meta"] = {**META, "subtitles": {"en": [], "fr": [], "live_chat": []},
+                  "automatic_captions": {"de": []}}  # fmt: skip
+    data = run(ENTRY, "preview", input={"url": URL})[-1]["data"]
+    (choice,) = data["choices"]
+    assert (data["title"], data["detail"]) == (META["title"], "DataEngBytes")
+    assert [o["value"] for o in choice["options"]] == ["en", "fr", "transcribe"]
+    assert (choice["field"], choice["multiple"], choice["default"]) == ("captions", False, ["en"])
+    yt["meta"] = {**META, "subtitles": {}}
+    assert run(ENTRY, "preview", input={"url": URL})[-1]["data"]["choices"][0]["default"] == [
+        "transcribe"
+    ]
+
+
+@pytest.mark.parametrize(
+    ("chosen", "captions_file"),
+    [("transcribe", None), (["fr"], "fr"), (None, "en")],
+    ids=["speech-chosen", "other-track-chosen", "no-choice"],
+)
+def test_the_chosen_transcript_is_the_one_fetched(yt, tmp_path, chosen, captions_file):
+    yt["meta"] = {**META, "subtitles": {"en": [], "fr": []}}
+    inp = {"url": URL} | ({"captions": chosen} if chosen is not None else {})
+    assert run(ENTRY, "fetch", input=inp, dest=tmp_path)[-1]["event"] == "result"
+    asked = [a.split("=", 1)[1] for c in yt["calls"] for a in c if a.startswith("--sub-langs=")]
+    assert asked == ([captions_file] if captions_file else [])
+    manifest = json.loads((tmp_path / "manifest.json").read_text(encoding="utf-8"))
+    assert ("captions" in manifest["media"]) is bool(captions_file)
+
+
+def test_a_track_the_video_lacks_is_refused_before_downloading(yt, tmp_path):
+    events = run(ENTRY, "fetch", input={"url": URL, "captions": "xx"}, dest=tmp_path)
+    assert (events[-1]["code"], len(yt["calls"])) == ("input", 1), "metadata only"

@@ -13,8 +13,9 @@ the author's guide.
 1. **Read your source's terms first.** Find what they say about automated download, and about
    use as input to a model. If they forbid it, stop here: no catalogue lists a connector that
    breaks its source's terms, or one that gets past a site's bot defence.
-2. **Rename.** Change the project name in `pyproject.toml`, the package under `src/`, `NAME`,
-   the class, and the entry point. The entry point's name must equal `NAME`.
+2. **Rename.** Change the project name in `pyproject.toml`, the package under `src/`, the
+   class and its `NAME`, and the entry point. The entry point's name must equal `NAME`.
+   `luminary-connector new <name>` does all of this for you.
 3. **Quote the terms** in `TERMS`, with the page's URL. The template ships
    `PLACEHOLDER_TERMS`, which install and the conformance kit both refuse.
 4. **Claim your links** in `URL_PREFIXES`: scheme, host and path, as narrow as the source.

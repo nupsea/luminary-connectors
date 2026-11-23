@@ -12,65 +12,59 @@ from typing import Any
 from luminary_source_sdk import (
     BundleWriter,
     Choice,
-    Connector,
     ConnectorError,
-    Description,
     Option,
     Preview,
     Report,
     Terms,
 )
+from luminary_source_sdk.bases import UrlConnector
 
 from luminary_youtube import ytdlp
 
 __version__ = "0.1.0"
-NAME = "youtube"
 
 TERMS = Terms(
     statement=(
         "YouTube's Terms of Service say you may not \"access, reproduce, download, distribute, "
         "transmit, broadcast, display, sell, license, alter, modify or otherwise use any part "
-        'of the Service or any Content except: (a) as expressly authorized by the Service; '
-        '(b) with prior written permission from YouTube and, if applicable, the respective '
+        "of the Service or any Content except: (a) as expressly authorized by the Service; "
+        "(b) with prior written permission from YouTube and, if applicable, the respective "
         'rights holders", nor "access the Service using any automated means (such as robots, '
-        'botnets or scrapers) except (a) in the case of public search engines, in accordance '
+        "botnets or scrapers) except (a) in the case of public search engines, in accordance "
         "with YouTube's robots.txt file; or (b) with YouTube's prior written permission\". "
         "Downloading a video with this connector is between you and YouTube."
     ),
     url="https://www.youtube.com/t/terms",
 )
 
-URL_PREFIXES = [
+URL_PREFIXES = (
     "https://www.youtube.com/watch",
     "https://youtube.com/watch",
     "https://m.youtube.com/watch",
     "https://youtu.be/",
     "http://www.youtube.com/watch",
     "http://youtu.be/",
-]
+)
 TRANSCRIBE = "transcribe"
 # What the manifest takes; YouTube's own limits are lower except for tags.
 _MAX_TAG_CHARS = 100
 
 
-class YouTube(Connector):
-    def describe(self) -> Description:
-        return Description(
-            name=NAME,
-            version=__version__,
-            licence="Apache-2.0",
-            terms=TERMS,
-            label="YouTube",
-            url_prefixes=URL_PREFIXES,
-            media=["youtube"],
-            tools=["ffmpeg"],
-            preview=True,
-        )
+class YouTube(UrlConnector):
+    NAME = "youtube"
+    VERSION = __version__
+    LABEL = "YouTube"
+    TERMS = TERMS
+    URL_PREFIXES = URL_PREFIXES
+    MEDIA = ("youtube",)
+    TOOLS = ("ffmpeg",)
+    PREVIEW = True
 
     def preview(self, input: dict[str, Any], credentials: dict[str, Any]) -> Preview:
         """The talk, and which transcript to use: an uploader's caption track, or the audio
         transcribed. The default is the rule a fetch without a choice follows."""
-        url = _claimed(input)
+        url = self.claimed_url(input)
         try:
             meta = ytdlp.fetch_metadata(url)
         except ytdlp.YtDlpError as exc:
@@ -90,7 +84,7 @@ class YouTube(Connector):
         self, input: dict[str, Any], credentials: dict[str, Any], bundle: BundleWriter,
         report: Report,
     ) -> None:  # fmt: skip
-        url = _claimed(input)
+        url = self.claimed_url(input)
         ffmpeg = (input.get("tools") or {}).get("ffmpeg")
         try:
             meta = ytdlp.fetch_metadata(url)
@@ -100,28 +94,21 @@ class YouTube(Connector):
         except ytdlp.YtDlpError as exc:
             raise ConnectorError("source", str(exc)) from exc
         channel = meta.get("uploader") or meta.get("channel")
-        bundle.finish(
-            connector=(NAME, __version__),
+        self.finish(
+            bundle,
             title=meta.get("title") or "YouTube Video",
-            terms=TERMS,
             media=media,
             authors=[channel] if isinstance(channel, str) and channel.strip() else [],
             tags=[t for t in meta.get("tags") or [] if _short_text(t, _MAX_TAG_CHARS)],
             description=meta.get("description") or None,
             chapters=[
-                c["title"] for c in meta.get("chapters") or []
+                c["title"]
+                for c in meta.get("chapters") or []
                 if isinstance(c, dict) and _short_text(c.get("title"), 500)
             ],  # fmt: skip
             source_url=url,
             locator=meta.get("id") or None,
         )
-
-
-def _claimed(input: dict[str, Any]) -> str:
-    url = str(input.get("url") or "")
-    if not any(url.startswith(p) for p in URL_PREFIXES):
-        raise ConnectorError("input", f"{url!r} is not a YouTube video link")
-    return url
 
 
 def _track(meta: dict, chosen: object) -> str | None:

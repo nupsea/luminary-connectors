@@ -1,0 +1,4 @@
+{
+ "manifest.json": "{\n  \"bundle_version\": 1,\n  \"connector\": {\n    \"name\": \"example\",\n    \"version\": \"0.1.0\"\n  },\n  \"title\": \"Logs\",\n  \"authors\": [],\n  \"media\": {\n    \"kind\": \"text\"\n  },\n  \"terms\": {\n    \"statement\": \"Quote what the source's own terms say about downloading and automated use.\",\n    \"url\": \"https://example.com/terms\"\n  },\n  \"tags\": [],\n  \"chapters\": [],\n  \"labels\": [],\n  \"sections\": [\n    {\n      \"id\": \"page\",\n      \"heading\": \"Logs\",\n      \"level\": 1,\n      \"file\": \"sections/page.html\",\n      \"source_url\": \"BASE/logs.html\"\n    }\n  ],\n  \"source_url\": \"BASE/logs.html\"\n}",
+ "sections/page.html": "<h1>Logs</h1><p>A log is an append-only sequence of records stored on disk. A log is an append-only sequence of records stored on disk. A log is an append-only sequence of records stored on disk. </p><img src=\"log.png\" alt=\"a log\">"
+}

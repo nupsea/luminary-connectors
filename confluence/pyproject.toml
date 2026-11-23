@@ -14,7 +14,7 @@ confluence = "luminary_confluence:Confluence"
 dev = ["pytest>=8.3"]
 
 [tool.uv.sources]
-luminary-source-sdk = { url = "https://github.com/nupsea/luminary/archive/e20a65177cfd8e27edbf1bb240773c9494fb1e57.tar.gz", subdirectory = "packages/luminary-source-sdk" }
+luminary-source-sdk = { url = "https://github.com/nupsea/luminary/archive/f0463ca24a5833316923b5f9fa8ad9d09ba35820.tar.gz", subdirectory = "packages/luminary-source-sdk" }
 
 [build-system]
 requires = ["hatchling"]

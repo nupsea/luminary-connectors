@@ -9,6 +9,7 @@ from urllib.parse import parse_qs, urlsplit
 
 import pytest
 from luminary_source_sdk import conformance
+from luminary_source_sdk.client import PoliteClient
 from luminary_source_sdk.testing import run
 
 import luminary_confluence as confluence
@@ -91,7 +92,7 @@ def wiki(monkeypatch):
     server = ThreadingHTTPServer(("127.0.0.1", 0), _handler(PAGES, hidden))
     threading.Thread(target=server.serve_forever, daemon=True).start()
     base = f"http://127.0.0.1:{server.server_port}/wiki/"
-    monkeypatch.setattr(confluence, "URL_PREFIXES", [base])
+    monkeypatch.setattr(confluence.Confluence, "URL_PREFIXES", (base,))
     monkeypatch.setattr(confluence, "DELAY_S", 0)
     yield base, hidden
     server.shutdown()
@@ -158,25 +159,25 @@ def test_a_dropped_connection_is_retried_and_a_dead_one_reported(wiki, tmp_path,
 
     base, _ = wiki
     monkeypatch.setattr(confluence, "RETRY_BACKOFF_S", 0)
-    real = confluence._Api._get_once
+    real = PoliteClient._get_once
     drops = {"left": 1}
 
-    def flaky(self, url):
+    def flaky(self, url, headers):
         if drops["left"]:
             drops["left"] -= 1
             raise urllib.error.URLError(TimeoutError("timed out"))
-        return real(self, url)
+        return real(self, url, headers)
 
-    monkeypatch.setattr(confluence._Api, "_get_once", flaky)
+    monkeypatch.setattr(PoliteClient, "_get_once", flaky)
     manifest = _fetch(base + "spaces/SIG/pages/1/x", tmp_path / "ok")
     assert len(manifest["sections"]) == len(TREE)
 
-    def dead(self, url):
+    def dead(self, url, headers):
         raise urllib.error.URLError(TimeoutError("timed out"))
 
-    monkeypatch.setattr(confluence._Api, "_get_once", dead)
+    monkeypatch.setattr(PoliteClient, "_get_once", dead)
     events = run(ENTRY, "fetch", input={"url": base + "spaces/SIG/pages/1/x"}, dest=tmp_path / "no")
-    assert (events[-1]["code"], "could not read" in events[-1]["message"]) == ("source", True)
+    assert (events[-1]["code"], "could not reach" in events[-1]["message"]) == ("source", True)
 
 
 def test_a_tree_with_no_text_is_refused(wiki, tmp_path):

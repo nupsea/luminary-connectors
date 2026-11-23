@@ -13,15 +13,15 @@ change what a citation points at. Luminary installs a connector only when its us
 | [html-book](html-book/) | Books on `doc.rust-lang.org` and `docs.python.org/3/` (mdBook, Sphinx) | Nothing |
 | [confluence](confluence/) | Public pages on `lf-hyperledger.atlassian.net/wiki`, with the pages under them | Nothing |
 
-To write one, start from [template](template/): a working one-page connector whose tests run the
-conformance kit.
+To write one: [docs/first-connector.md](docs/first-connector.md), then
+[CONTRIBUTING.md](CONTRIBUTING.md). [docs/protocol.md](docs/protocol.md) is the contract, and
+[template](template/) is a working one-page connector to start from.
 
 Each is a project of its own. Luminary installs one from its folder
 (`python -m app.scripts.install_connector <folder>`), builds its environment with `uv sync`, and
-runs it as a separate process per request. A connector is written against
-[`luminary-source-sdk`](https://github.com/nupsea/luminary/tree/master/packages/luminary-source-sdk),
-whose README is the author's guide; the bundle's schema is
-`packages/luminary-source-sdk/schema/source-bundle.schema.json`.
+runs it as a separate process per request. Every connector here is written against one commit of
+[`luminary-source-sdk`](https://github.com/nupsea/luminary/tree/master/packages/luminary-source-sdk)
+(`scripts/check_contract.py`).
 
 ## Terms
 

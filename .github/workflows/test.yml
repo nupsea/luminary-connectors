@@ -21,3 +21,13 @@ jobs:
       - name: Tests
         working-directory: ${{ matrix.connector }}
         run: uv run --locked pytest -q
+
+  # Every connector on one SDK commit, and docs/protocol.md that commit's contract.
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: python scripts/check_contract.py

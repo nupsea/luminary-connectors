@@ -28,7 +28,7 @@ def site(tmp_path, monkeypatch):
     server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     base = f"http://127.0.0.1:{server.server_port}/"
-    monkeypatch.setattr(luminary_example, "URL_PREFIXES", [base])
+    monkeypatch.setattr(luminary_example.Example, "URL_PREFIXES", (base,))
     yield base
     server.shutdown()
 
@@ -46,7 +46,7 @@ def test_the_template_fails_only_on_its_placeholder_terms(site, tmp_path):
 
 def test_with_real_terms_it_passes_the_conformance_kit(site, tmp_path, monkeypatch):
     monkeypatch.setattr(
-        luminary_example,
+        luminary_example.Example,
         "TERMS",
         Terms("Pages on this test server may be downloaded.", "https://example.com/terms"),
     )

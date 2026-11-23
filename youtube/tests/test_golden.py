@@ -21,8 +21,8 @@ def _snapshot(bundle: Path) -> dict:
     for path in sorted(p for p in bundle.rglob("*") if p.is_file()):
         rel, data = path.relative_to(bundle).as_posix(), path.read_bytes()
         if rel.endswith(_TEXT):
-            # Text is written with the platform's newline; the core reads either.
-            out[rel] = data.decode("utf-8").replace("\r\n", "\n")
+            # On Windows the fixtures and the bundle carry \r\n; the core reads either.
+            out[rel] = data.decode("utf-8").replace("\r", "")
         else:
             out[rel] = "sha256:" + hashlib.sha256(data).hexdigest()
     return out

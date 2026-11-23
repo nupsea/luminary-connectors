@@ -7,84 +7,46 @@ Luminary chunks, cites and writes cards for it; this connector only downloads.
 
 from __future__ import annotations
 
-import json
 import re
-import time
-import urllib.error
-import urllib.request
+from html import escape
 from typing import Any
 from urllib.parse import quote, urlsplit
 
-from luminary_source_sdk import BundleWriter, Connector, ConnectorError, Description, Report, Terms
+from luminary_source_sdk import BundleWriter, ConnectorError, Report, Terms
+from luminary_source_sdk.bases import UrlConnector
+from luminary_source_sdk.client import PoliteClient
+from luminary_source_sdk.progress import Progress
 
 __version__ = "0.1.0"
-NAME = "confluence"
 
-TERMS = Terms(
-    statement=(
-        "The Linux Foundation's Terms of Use (revised November 16, 2020), which cover its "
-        'project wikis: "Except as otherwise provided, Content on this site is licensed under '
-        'a Creative Commons Attribution 3.0 License", and non-code submissions including wikis '
-        '"will be governed by the Creative Commons Attribution 3.0". lf-hyperledger.atlassian.net '
-        "allows /wiki/ in robots.txt with a crawl delay of 1 second. The terms say nothing about "
-        "automated download or use as model input."
-    ),
-    url="https://www.linuxfoundation.org/legal/terms",
-)
-# Only wikis whose terms were read are claimed; another is added with its terms above.
-URL_PREFIXES = ["https://lf-hyperledger.atlassian.net/wiki/"]
-
-USER_AGENT = f"luminary-confluence/{__version__} (+https://github.com/nupsea/luminary-connectors)"
 # robots.txt's Crawl-delay.
 DELAY_S = 1.0
 # The core takes at most 5,000 sections; a subtree past this is a whole wiki, not a document.
 MAX_PAGES = 1000
-_TIMEOUT_S = 30
 # A connection that times out is retried: the live wiki dropped one of about fifty requests
 # while its ground truth was written. An HTTP answer (404, 403) is never retried.
 RETRIES = 2
 RETRY_BACKOFF_S = 2.0
+_NOT_PUBLIC = "the page is missing or not public"
 _PAGE = re.compile(r"/wiki/spaces/[^/]+/pages/(\d+)")
 _SPACE = re.compile(r"/wiki/spaces/([^/]+)/?(?:overview)?/?$")
 
 
 class _Api:
-    def __init__(self, base: str) -> None:
+    def __init__(self, base: str, client: PoliteClient) -> None:
         self.base = base
-        self._last = 0.0
+        self.client = client
 
     def get(self, path: str) -> dict[str, Any]:
         url = path if path.startswith("http") else f"{self.base}{path}"
-        for attempt in range(RETRIES + 1):
-            try:
-                return self._get_once(url)
-            except (urllib.error.URLError, TimeoutError) as exc:
-                # `_get_once` turns an HTTP answer into a ConnectorError, so this is the network.
-                if attempt == RETRIES:
-                    raise ConnectorError("source", f"could not read {url}: {exc}") from exc
-                time.sleep(RETRY_BACKOFF_S * (attempt + 1))
-        raise AssertionError("unreachable")
-
-    def _get_once(self, url: str) -> dict[str, Any]:
-        wait = self._last + DELAY_S - time.monotonic()
-        if wait > 0:
-            time.sleep(wait)
-        req = urllib.request.Request(
-            url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"}
-        )
         try:
-            with urllib.request.urlopen(req, timeout=_TIMEOUT_S) as resp:
-                return json.loads(resp.read().decode("utf-8"))
-        except urllib.error.HTTPError as exc:
-            if exc.code in (401, 403, 404):
-                raise ConnectorError(
-                    "source", f"{url} answered {exc.code}: the page is missing or not public"
-                ) from exc
-            raise ConnectorError("source", f"{url} answered {exc.code}") from exc
-        except ValueError as exc:
-            raise ConnectorError("source", f"{url} did not answer JSON: {exc}") from exc
-        finally:
-            self._last = time.monotonic()
+            return self.client.get_json(url)
+        except ConnectorError as exc:
+            # The wikis it reads are anonymous: a 401 is a page that is not public, not a
+            # sign-in Luminary could ask for.
+            if exc.code == "auth":
+                raise ConnectorError("source", exc.message) from exc
+            raise
 
     def children(self, page_id: str) -> list[dict[str, Any]]:
         """A page's child pages in the order the space shows them."""
@@ -131,16 +93,23 @@ def root_page(api: _Api, url: str) -> str:
     raise ConnectorError("input", f"{url} is not a Confluence page or space link")
 
 
-class Confluence(Connector):
-    def describe(self) -> Description:
-        return Description(
-            name=NAME,
-            version=__version__,
-            licence="Apache-2.0",
-            terms=TERMS,
-            label="Confluence",
-            url_prefixes=URL_PREFIXES,
-        )
+class Confluence(UrlConnector):
+    NAME = "confluence"
+    VERSION = __version__
+    LABEL = "Confluence"
+    TERMS = Terms(
+        statement=(
+            "The Linux Foundation's Terms of Use (revised November 16, 2020), which cover its "
+            'project wikis: "Except as otherwise provided, Content on this site is licensed under '
+            'a Creative Commons Attribution 3.0 License", and non-code submissions including '
+            'wikis "will be governed by the Creative Commons Attribution 3.0". '
+            "lf-hyperledger.atlassian.net allows /wiki/ in robots.txt with a crawl delay of 1 "
+            "second. The terms say nothing about automated download or use as model input."
+        ),
+        url="https://www.linuxfoundation.org/legal/terms",
+    )
+    # Only wikis whose terms were read are claimed; another is added with its terms above.
+    URL_PREFIXES = ("https://lf-hyperledger.atlassian.net/wiki/",)
 
     def fetch(
         self,
@@ -149,16 +118,22 @@ class Confluence(Connector):
         bundle: BundleWriter,
         report: Report,
     ) -> None:
-        url = str(input.get("url", ""))
-        if not any(url.startswith(p) for p in URL_PREFIXES):
-            raise ConnectorError("input", f"{url} is not a wiki this connector takes")
-        api = _Api(wiki_base(url))
+        url = self.claimed_url(input)
+        client = PoliteClient(
+            self.user_agent("https://github.com/nupsea/luminary-connectors"),
+            delay_s=DELAY_S,
+            retries=RETRIES,
+            backoff_s=RETRY_BACKOFF_S,
+            messages={401: _NOT_PUBLIC, 403: _NOT_PUBLIC, 404: _NOT_PUBLIC},
+        )
+        api = _Api(wiki_base(url), client)
         root = root_page(api, url)
         # Depth first, children by position: the order the space's page tree shows.
         stack: list[tuple[str, int]] = [(root, 1)]
         seen: set[str] = set()
         title = ""
-        done = 0.0
+        added = False
+        progress = Progress(report, "downloading pages")
         while stack:
             page_id, depth = stack.pop()
             if page_id in seen:
@@ -180,17 +155,12 @@ class Confluence(Connector):
             bundle.add_section(
                 f"p{len(seen):04d}",
                 heading,
-                html=f"<h1>{_escape(heading)}</h1>{body}",
+                html=f"<h1>{escape(heading, quote=False)}</h1>{body}",
                 level=depth,
                 source_url=f"{api.base}{webui}" if webui else None,
             )
-            # Pages found later lower the estimate; what is reported never goes back.
-            done = max(done, min(0.99, len(seen) / (len(seen) + len(stack) + 1)))
-            report(done, "downloading pages")
-        if not done:
+            added = True
+            progress.update(len(seen), len(stack) + 1)
+        if not added:
             raise ConnectorError("source", f"no page under {url} has any text")
-        bundle.finish(connector=(NAME, __version__), title=title, terms=TERMS, source_url=url)
-
-
-def _escape(text: str) -> str:
-    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        self.finish(bundle, title=title, source_url=url)

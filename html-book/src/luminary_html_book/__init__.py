@@ -9,18 +9,17 @@ and the name the book lists it under.
 from __future__ import annotations
 
 import re
-import time
-import urllib.error
-import urllib.request
 from typing import Any
 from urllib.parse import urljoin, urlsplit
 
-from luminary_source_sdk import BundleWriter, Connector, ConnectorError, Description, Report, Terms
+from luminary_source_sdk import BundleWriter, ConnectorError, Report, Terms
+from luminary_source_sdk.bases import UrlConnector
+from luminary_source_sdk.client import PoliteClient
+from luminary_source_sdk.progress import Progress
 
 from luminary_html_book import page
 
 __version__ = "0.1.0"
-NAME = "html-book"
 
 TERMS = Terms(
     statement=(
@@ -34,29 +33,11 @@ TERMS = Terms(
     ),
     url="https://www.rust-lang.org/policies/licenses",
 )
-# Only sites whose terms were read are claimed; a new one is added with its terms above.
-URL_PREFIXES = ["https://doc.rust-lang.org/", "https://docs.python.org/3/"]
-
-USER_AGENT = f"luminary-html-book/{__version__} (+https://github.com/nupsea/luminary-connectors)"
 # One request a second: a whole book (the Rust book's 111 pages) in about two minutes.
 DELAY_S = 1.0
 # More pages than any book these sites publish; a next-link loop or a whole site stops here.
 MAX_PAGES = 1500
-_TIMEOUT_S = 30
 _TOC_SCRIPT = re.compile(r"(?:^|/)toc[^/]*\.js$")
-
-
-def _get(url: str) -> tuple[str, str]:
-    """(final URL, text) of one page."""
-    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    try:
-        with urllib.request.urlopen(req, timeout=_TIMEOUT_S) as resp:
-            charset = resp.headers.get_content_charset() or "utf-8"
-            return resp.geturl(), resp.read().decode(charset, errors="replace")
-    except urllib.error.HTTPError as exc:
-        raise ConnectorError("source", f"{url} answered {exc.code}") from exc
-    except (urllib.error.URLError, TimeoutError) as exc:
-        raise ConnectorError("source", f"could not reach {url}: {exc}") from exc
 
 
 def book_scope(url: str) -> str:
@@ -66,32 +47,37 @@ def book_scope(url: str) -> str:
     return f"{parts.scheme}://{parts.netloc}{folder}"
 
 
-def _contents(root: page.Node, url: str, scope: str) -> dict[str, tuple[int, str]]:
+def _contents(
+    client: PoliteClient, root: page.Node, url: str, scope: str
+) -> dict[str, tuple[int, str]]:
     contents = page.contents_list(root, url, scope)
     for node in root.walk():
         src = node.attrs.get("src", "") if node.tag == "script" else ""
         script = urljoin(url, src) if src else ""
         if script.startswith(scope) and _TOC_SCRIPT.search(urlsplit(script).path):
-            found = page.contents_list(page.parse(_get(script)[1]), url, scope)
+            found = page.contents_list(page.parse(client.get_text(script)[1]), url, scope)
             if len(found) > len(contents):
                 contents = found
     return contents
 
 
-class HtmlBook(Connector):
-    def describe(self) -> Description:
-        return Description(
-            name=NAME, version=__version__, licence="Apache-2.0", terms=TERMS,
-            label="HTML book", url_prefixes=URL_PREFIXES,
-        )  # fmt: skip
+class HtmlBook(UrlConnector):
+    NAME = "html-book"
+    VERSION = __version__
+    LABEL = "HTML book"
+    TERMS = TERMS
+    # Only sites whose terms were read are claimed; a new one is added with its terms above.
+    URL_PREFIXES = ("https://doc.rust-lang.org/", "https://docs.python.org/3/")
 
     def fetch(
         self, input: dict[str, Any], credentials: dict[str, Any], bundle: BundleWriter,
         report: Report,
     ) -> None:  # fmt: skip
-        start = str(input.get("url", ""))
-        if not any(start.startswith(p) for p in URL_PREFIXES):
-            raise ConnectorError("input", f"{start} is not a book this connector takes")
+        start = self.claimed_url(input)
+        client = PoliteClient(
+            self.user_agent("https://github.com/nupsea/luminary-connectors"), delay_s=DELAY_S
+        )
+        progress = Progress(report, "downloading pages")
         scope = book_scope(start)
         url: str | None = start
         seen: set[str] = set()
@@ -100,21 +86,16 @@ class HtmlBook(Connector):
         while url and url not in seen and url.startswith(scope):
             if len(seen) >= MAX_PAGES:
                 raise ConnectorError("source", f"stopped at {MAX_PAGES} pages; is {start} a book?")
-            if seen:
-                time.sleep(DELAY_S)
             seen.add(url)
-            final, html = _get(url)
+            final, html = client.get_text(url)
             root = page.parse(html)
             if contents is None:
-                contents = _contents(root, final, scope)
+                contents = _contents(client, root, final, scope)
                 book_title = page.title(root)
             self._add(bundle, root, final, len(seen), contents.get(final))
-            report(min(0.99, len(seen) / max(len(contents), len(seen) + 1)), "downloading pages")
+            progress.update(len(seen), max(len(contents) - len(seen), 1))
             url = page.next_link(root, final)
-        bundle.finish(
-            connector=(NAME, __version__), title=_book_name(book_title), terms=TERMS,
-            source_url=start,
-        )  # fmt: skip
+        self.finish(bundle, title=_book_name(book_title), source_url=start)
 
     @staticmethod
     def _add(

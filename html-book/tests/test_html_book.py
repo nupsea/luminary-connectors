@@ -84,7 +84,7 @@ def site(tmp_path, monkeypatch):
     server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     base = f"http://127.0.0.1:{server.server_port}/"
-    monkeypatch.setattr(html_book, "URL_PREFIXES", [base])
+    monkeypatch.setattr(html_book.HtmlBook, "URL_PREFIXES", (base,))
     monkeypatch.setattr(html_book, "DELAY_S", 0)
     yield base
     server.shutdown()
